@@ -29,9 +29,9 @@ ForEach($package in $validPackages) {
 		write-host "File count different, updating $packageName"
 		. "./update"
 	}else{
-		write-host "Files have changed"
 		for($i = 0; $i -lt $compare.Length; $i++) {
 			if($compare[$i] -ne $relativeFiles[$i]){
+				write-host "Files have changed, updating $packagename"
 				. "./update"
 				break
 			}
