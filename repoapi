@@ -1,0 +1,82 @@
+-- List of transports
+transports = {}
+
+local defaultTransport = "http"
+
+function registerTransport(transport)
+  if not transport.getName then
+    return false, "Transport doesn't implement getName"
+  end
+  local name = transport.getName()
+  if transports[name] then
+    return false, "Transport already registered"
+  end
+  if not transport.fetch then
+    return false, "Transport doesn't implement fetch"
+  end
+  transports[name] = transport
+  return true, "Registered"
+end
+
+function unregisterTransport(name)
+  if not transports[name] then
+    return false, "Doesn't exist"
+  end
+  transports[name] = nil
+  return true, "Removed"
+end
+
+function createTransport( name, fetchFunction )
+  local transport = {}
+  transport.getName = function()
+    return name
+  end
+  transport.fetch = fetchFunction
+  return transport
+end
+
+function fetch(path, transport)
+  if transport == nil then
+    transport = defaultTransport
+  end
+  if not transports[transport] then
+    return false, "Transport Unavailable"
+  end
+  return transports[transport].fetch(path)
+end
+
+
+
+if http then
+  local httpRoot = "https://raw.github.com/nevercast/CCNet/master"
+  http.get2 = function(url) 
+    http.request(url)
+    local event = nil
+    while true do
+      event = { os.pullEventRaw() }
+      if (event[1] == "http_success") then
+        break
+      elseif (event[1] == "http_failure") then
+        error( "No response from server.", 2)
+      end
+    end
+    return event[3]
+  end
+  local httpTransportFetch = function(path)
+    if not http then return false, "http not available" end
+    local result = http.get2( httpRoot .. path)
+    if result == nil then
+      return false, "unable to request url"
+    end
+    local resultLines = {}
+    local line = result.readLine()
+    while line ~= nil do
+      table.insert(resultLines, line)
+      line = result.readLine()
+    end
+    result.close()
+    return true, resultLines
+  end  
+  local httpTransport = createTransport("http", httpTransportFetch)
+  registerTransport(httpTransport)  
+end
