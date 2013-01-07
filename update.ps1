@@ -26,15 +26,19 @@ ForEach($package in $validPackages) {
 	}
 	Push-Location
 	Set-Location $workingDirectory
-	if($compare.Length -ne $relativeFiles.Length){
-		write-host "File count different, updating $packageName"
+	if($args.Length -gt 0 -and $args[0] -eq "all"){
 		. "./update"
 	}else{
-		for($i = 0; $i -lt $compare.Length; $i++) {
-			if($compare[$i] -ne $relativeFiles[$i]){
-				write-host "Files have changed, updating $packagename"
-				. "./update"
-				break
+		if($compare.Length -ne $relativeFiles.Length){
+			write-host "File count different, updating $packageName"
+			. "./update"
+		}else{
+			for($i = 0; $i -lt $compare.Length; $i++) {
+				if($compare[$i] -ne $relativeFiles[$i]){
+					write-host "Files have changed, updating $packagename"
+					. "./update"
+					break
+				}
 			}
 		}
 	}
