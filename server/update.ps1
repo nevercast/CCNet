@@ -1,3 +1,4 @@
+$OutputEncoding = [Console]::OutputEncoding
 $name = ""
 $version = "0.0.0.0"
 $incrementBuild = $TRUE
@@ -46,7 +47,7 @@ write-host "Version: $version"
 
 write-host "Writing VERSION..."
 $versionFileOutput = @($name, $version)
-$versionFileOutput | out-file ".\VERSION"
+$versionFileOutput | out-file -encoding "ASCII" ".\VERSION"
 write-host "Okay"
 
 write-host "Building Index..."
