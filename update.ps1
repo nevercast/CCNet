@@ -1,3 +1,4 @@
+$OutputEncoding = [Console]::OutputEncoding
 write-host "Starting Global Update"
 $softwarePackages = [System.IO.Directory]::GetDirectories((Get-Location))
 $validPackages = @()
@@ -8,7 +9,7 @@ ForEach ($package in $softwarePackages) {
 }
 $count = $validPackages.Length
 write-host "$count packages found... running updates"
-$validPackages | out-file "PACKAGES"
+$validPackages | out-file -encoding "ASCII" "PACKAGES"
 
 ForEach($package in $validPackages) {
 	$workingDirectory = (Get-Location).Path + $package
