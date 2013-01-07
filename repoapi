@@ -49,7 +49,7 @@ end
 
 if http then
   local httpRoot = "https://raw.github.com/nevercast/CCNet/master"
-  http.get2 = function(url) 
+ --[[ http.get2 = function(url) 
     http.request(url)
     local event = nil
     while true do
@@ -61,10 +61,10 @@ if http then
       end
     end
     return event[3]
-  end
+  end --]]
   local httpTransportFetch = function(path)
     if not http then return false, "http not available" end
-    local result = http.get2( httpRoot .. path)
+    local result = http.get( httpRoot .. path)
     if result == nil then
       return false, "unable to request url"
     end
