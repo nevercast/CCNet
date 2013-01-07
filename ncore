@@ -1,0 +1,68 @@
+--[[
+  NeverCast's Core API
+  Little code snippets to make my life easier
+--]]
+
+function getShellForApi()
+  if shell then return shell end
+  local shell = nil
+  for i = 0,10 do
+    local fEnv = getfenv(i)
+    local c = 0
+    for k,v in pairs(fEnv) do c = c + 1 end
+    if c == 1 and fEnv.shell then
+      shell = shell or fEnv.shell
+    end
+  end
+  return shell
+end
+
+function addToShellPath( path )
+  local combinedPath = fs.combine("/", path)
+  shell = getShellForApi()
+  if not shell then return end
+  local newPath = shell.path()..":/"..combinedPath
+  shell.setPath(newPath)
+end
+
+
+function splitByDelim(inputstr, sep)
+    -- table
+    local t={}
+    for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+      table.insert(t, str)
+    end
+    -- return result
+    return t
+end
+
+function convertToVersion(versionString)
+  local versionTable = splitByDelim(versionString, "\.")
+  local version = {}
+  version["major"] = tonumber(versionTable[1] or 0)
+  version["minor"] = tonumber(versionTable[2] or 0)
+  version["revision"] = tonumber(versionTable[3] or 0)
+  version["build"] = tonumber(versionTable[4] or 0)
+  return version
+end
+
+function isVersionNewer(newVersion, oldVersion)
+  current = convertToVersion(oldVersion)
+  remote = convertToVersion(newVersion)
+  if remote.major > current.major then
+    return true
+  elseif remote.major == current.major then
+    if remote.minor > current.minor then
+      return true
+    elseif remote.minor == current.minor then
+      if remote.revision > current.revision then
+        return true
+      elseif remote.revision == current.revision then
+        if remote.build > current.build then
+          return true
+        end
+      end
+    end
+  end    
+  return false
+end

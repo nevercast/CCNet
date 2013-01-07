@@ -1,7 +1,50 @@
+if not os.loadAPI("ncore") then error("cannot load ncore") end
+
+-- Defaults
+local HTTP_REPO = "https://raw.github.com/nevercast/CCNet/master"
+local FILE_PATH = "/repo"
+local RN_TIMEOUT = 5
+
+
 -- List of transports
 transports = {}
 
+--[[
+  Transport Data
+  
+  Http:
+    root      root path for http requests [optional]
+  Rednet:
+    server    id of the computer that will serve the requests
+    timeout   seconds before giving up on a request [optional]
+  File:
+    path      path where the repo is stored [optional]
+    
+  --]]
+local transportData = {}
 local defaultTransport = "http"
+
+function setDefaultTransport(name)
+	if type(name) == "table" and 
+		name.getName and type(name.getName) == "function" then
+			setDefaultTransport(name.getName())
+	elseif type(name) == "string" then
+		defaultTransport = name
+	else
+		return false, "Invalid type"
+	end
+	return true, "Okay"
+end
+
+function setTransportData(data)
+  if transportData then -- Merges Properties
+    for i,v in pairs(data) do
+      transportData[i] = v
+    end
+  else
+    transportData = data
+  end
+end
 
 function registerTransport(transport)
   if not transport.getName then
@@ -36,32 +79,16 @@ function createTransport( name, fetchFunction )
 end
 
 function fetch(path, transport)
-  if transport == nil then
-    transport = defaultTransport
-  end
+  transport = transport or defaultTransport
   if not transports[transport] then
     return false, "Transport Unavailable"
   end
   return transports[transport].fetch(path)
 end
 
-
-
+-- Load HTTP Transport
 if http then
-  local httpRoot = "https://raw.github.com/nevercast/CCNet/master"
- --[[ http.get2 = function(url) 
-    http.request(url)
-    local event = nil
-    while true do
-      event = { os.pullEventRaw() }
-      if (event[1] == "http_success") then
-        break
-      elseif (event[1] == "http_failure") then
-        error( "No response from server.", 2)
-      end
-    end
-    return event[3]
-  end --]]
+  local httpRoot = transportData.root or HTTP_REPO
   local httpTransportFetch = function(path)
     if not http then return false, "http not available" end
     local result = http.get( httpRoot .. path)
@@ -80,3 +107,77 @@ if http then
   local httpTransport = createTransport("http", httpTransportFetch)
   registerTransport(httpTransport)  
 end
+
+-- Load RedNet transport
+-- Requires rednet server
+if rednet then
+  local packetType = "REQUEST"
+  local rednetTransportFetch = function(path)
+    if not rednet then return false, "rednet not available" end
+    if not transportData or not transportData.server then return false, "no server in transport data" end
+    local token = math.random(10000)
+    local packet = {}
+    packet.type = packetType
+    packet.token = token
+    packet.data = path
+    local attempt = rednet.send(transportData.server, "REPO" .. textutils.serialize(packet))
+    if not attempt then return false, "could not send data, is port open?" end
+    local timeout = os.startTimer(transportData.timeout or RN_TIMEOUT)
+    while true do
+      local event = { coroutine.yield() }
+      if event[1] == "timer" and event[2] == timeout then
+        return false, "response timed out"
+      elseif event[1] == "rednet_message" and string.sub(event[2],1,4) == "REPO" then
+        local rPacket = textutils.unserialize(event[2])
+        if packet.token == token and packet.type == "RESPONSE" then
+          if packet.data.okay then
+            return true, packet.data.content
+          else
+            return false, packet.data.error or "Unknown error"
+          end
+        elseif packet.token == token then
+          return false, "Unexpected response"
+        end          
+      end
+    end
+  end
+  local rednetTransport = createTransport("rednet", rednetTransportFetch)
+  registerTransport(rednetTransport)
+end
+
+-- Load file transport
+if fs then
+  
+  local function readAllFileLines(path)
+    local handle = fs.open(path, "r")
+    if not handle then return false, "couldn't open file" end
+    local line = handle.readLine()
+    local allLines = {}
+    while line do
+      table.insert(allLines, line)
+      line = handle.readLine()
+    end
+    handle.close()
+    return true, allLines
+  end
+
+  local fileTransportFetch = function(path)
+    local basePath = transportData.path or FILE_PATH
+    local filePath = fs.combine(basePath, path)
+    if fs.exists(filePath) and not fs.isDir(filePath) then
+      local r, lines = readAllFileLines(filePath)
+      if not r then return false, "failure reading file" end
+      return true, lines
+    else
+      return false, "No file found"
+    end
+  end
+  
+  local fileTransport = createTransport("file", fileTransportFetch)
+  registerTransport(fileTransport)
+end
+
+if _G.registeredRepoAPIPaths then return end
+_G.registeredRepoAPIPaths = true
+ncore.addToShellPath("/bin")
+ncore.addToShellPath("/repo/bin")
